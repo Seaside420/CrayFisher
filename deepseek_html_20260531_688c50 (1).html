@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CrayFisher · Island Crayfish Game</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0f14;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    #game-container {
+      position: relative;
+      max-width: 100vw;
+      max-height: 100vh;
+    }
+    canvas {
+      display: block;
+      border: 2px solid #1a3a4a;
+      border-radius: 6px;
+      box-shadow: 0 0 30px rgba(0,160,200,0.4);
+      max-width: 100vw;
+      max-height: 100vh;
+      object-fit: contain;
+    }
+    #hud {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .hud-item {
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 5px;
+      padding: 3px 9px;
+      color: #fff;
+      font-size: 11px;
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+      letter-spacing: 0.3px;
+    }
+    .hud-item.warning {
+      border-color: #ff5555;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%,100%{ border-color:#ff5555; box-shadow:0 0 8px rgba(255,80,80,0.5); }
+      50%{ border-color:#ffaaaa; box-shadow:0 0 14px rgba(255,120,120,0.8); }
+    }
+    #title-area {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #title-area h1 {
+      color: #fff;
+      font-size: 20px;
+      text-shadow: 0 0 10px #ffaa30;
+      margin: 0;
+      letter-spacing: 2px;
+    }
+    #title-area .highscore-text {
+      color: #ffd966;
+      font-size: 12px;
+    }
+    #credit {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      pointer-events: none;
+      z-index: 20;
+      color: rgba(255,255,255,0.5);
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    #mobile-controls {
+      display: none;
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .ctrl-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 2px solid rgba(255,255,255,0.5);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ctrl-btn:active { background: rgba(255,255,255,0.35); }
+    .ctrl-btn.action {
+      width: 52px;
+      height: 52px;
+      border-color: #ffaa00;
+      background: rgba(255,170,0,0.2);
+      font-size: 13px;
+      font-weight: bold;
+    }
+    @media (max-width: 900px), (hover:none) and (pointer:coarse) {
+      #mobile-controls { display: flex; }
+      .hud-item { font-size: 10px; padding: 2px 6px; }
+    }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <div id="title-area">
+    <h1>🦞 CrayFisher</h1>
+    <span class="highscore-text">⭐ <span id="highscoreValue">0</span></span>
+  </div>
+  <div id="hud">
+    <div class="hud-item">💰 <span id="coins">100</span></div>
+    <div class="hud-item">🪱 <span id="bait">0</span></div>
+    <div class="hud-item">🪤 <span id="pots">1/3</span></div>
+    <div class="hud-item">🦞 <span id="crayfish">0</span></div>
+    <div class="hud-item" id="fuel-hud">⛽ <span id="fuel">100</span></div>
+    <div class="hud-item" id="ice-hud">🧊 <span id="ice">100</span></div>
+    <div class="hud-item">🚤 <span id="boat">Basic</span></div>
+    <div class="hud-item">💨 <span id="wind">0 kn</span></div>
+    <div class="hud-item" id="event-hud">📋 <span id="event">Clear</span></div>
+  </div>
+  <div id="credit">by SEASIDE420</div>
+  <div id="mobile-controls">
+    <button class="ctrl-btn" id="btn-up">▲</button>
+    <div style="display:flex;gap:4px;">
+      <button class="ctrl-btn" id="btn-left">◀</button>
+      <button class="ctrl-btn action" id="btn-space">🎣</button>
+      <button class="ctrl-btn" id="btn-right">▶</button>
+    </div>
+    <button class="ctrl-btn" id="btn-down">▼</button>
+    <button class="ctrl-btn action" id="btn-anchor">⚓</button>
+    <button class="ctrl-btn" id="btn-menu">📋</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════
+const CONSTANTS = {
+  BOAT: {
+    BASE_SPEED: { 0: 0.536, 1: 0.536, 2: 0.536, 3: 0.804 },
+    WIDTH: { 0: 2.4, 1: 3.6, 2: 4.8, 3: 3.6 },
+    LENGTH: { 0: 7.2, 1: 8.4, 2: 9.6, 3: 8.4 },
+    SCALE: { 0: 1.2, 1: 1.5, 2: 1.8, 3: 1.5 }
+  },
+  FUEL_CONSUMPTION: 0.008,
+  POT_RANGE: 40,
+  WHARF_RANGE: 80,
+  GRID_SIZE: 40,
+  GRID_COLS: 32,
+  GRID_ROWS: 24,
+  DAY_CYCLE: 600000,
+  ANCHOR_DIST: 35,
+  HOTSPOT_RADIUS: 75,
+  POINT_RADIUS: 80
+};
+
+// ═══════════════════════════════════════════════
+//  GLOBAL STATE
+// ═══════════════════════════════════════════════
+let island, smallIslandBR, smallIslandTL, newIsland;
+let grid = [];
+let boat;
+let pots = [];
+let showMenu = false, showEscMenu = false, gameOver = false, showTutorial = true;
+let particles = [], seagulls = [], notifications = [];
+let dayTime = 0.35, crayfishPrice = 20;
+let flashPot = null;
+let hotspots = [];
+let lastFrameTime = 0;
+
+let player = {
+  coins: 100, bait: 0, totalPots: 1, maxPots: 3, availablePots: 1,
+  crayfish: [], fuel: 100, ice: 100, maxIce: 100, iceUpgrade: 0,
+  fuelEfficiency: 1, boatTier: 0, ownedBoats: [0], selectedBoat: 0, highscore: 0
+};
+
+let wind = { direction: 0, speed: 0, nextChange: 0 };
+let event = { type: 'none', endTime: 0, boost: 1 };
+
+let islandPoints = [
+  { x: 512, y: 181, multiplier: 1 },
+  { x: 832, y: 181, multiplier: 1 },
+  { x: 912, y: 501, multiplier: 1 },
+  { x: 432, y: 501, multiplier: 1 },
+  { x: 1040, y: 677, multiplier: 1.8 },
+  { x: 272, y: 117, multiplier: 2.2 }
+];
+
+let mountainPeaks = [
+  { x: 560, y: 325, height: 128 },
+  { x: 640, y: 341, height: 160 },
+  { x: 720, y: 333, height: 144 }
+];
+
+let wharf = { x: 640, y: 513, w: 40, h: 24 };
+
+let mobileKeys = { up: false, down: false, left: false, right: false };
+
+// ═══════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+  if (audioCtx?.state === 'suspended') audioCtx.resume();
+}
+function playSound(freq,type,dur,vol=0.08,glide=0) {
+  if(!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq,t);
+  if(glide) osc.frequency.linearRampToValueAtTime(freq+glide, t+dur);
+  gain.gain.setValueAtTime(vol,t);
+  gain.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t+dur);
+}
+function sfxDrop(){ playSound(200,'triangle',0.15,0.06,-60); }
+function sfxPickup(){ playSound(400,'sine',0.2,0.08,120); playSound(600,'sine',0.1,0.06,200); }
+function sfxBuy(){ playSound(500,'square',0.08,0.05); }
+function sfxCrash(){ playSound(60,'sawtooth',0.4,0.15,-30); }
+function sfxAnchor(){ playSound(150,'triangle',0.25,0.1); }
+function sfxSell(){ playSound(800,'sine',0.06,0.03); playSound(1000,'sine',0.08,0.04); }
+function sfxUpgrade(){ playSound(300,'square',0.07,0.06); playSound(500,'square',0.06,0.05); }
+
+// ═══════════════════════════════════════════════
+//  PARTICLE
+// ═══════════════════════════════════════════════
+class Particle {
+  constructor(x,y,vx,vy,life,color,size=2){
+    this.pos = createVector(x,y);
+    this.vel = createVector(vx,vy);
+    this.life = life;
+    this.maxLife = life;
+    this.color = color;
+    this.size = size;
+  }
+  update(dt){
+    this.pos.add(p5.Vector.mult(this.vel, dt*60));
+    this.life -= dt;
+    this.vel.mult(0.98);
+  }
+  show(){
+    const alpha = map(this.life,0,this.maxLife,0,255);
+    noStroke();
+    fill(this.color[0],this.color[1],this.color[2],alpha);
+    ellipse(this.pos.x,this.pos.y,this.size);
+  }
+  get dead(){ return this.life <= 0; }
+}
+function spawnParticles(x,y,count,color,spread=1.5,life=0.6){
+  for(let i=0;i<count;i++){
+    particles.push(new Particle(x,y,random(-spread,spread),random(-spread,spread),life,color,random(1.5,3.5)));
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  SEAGULL
+// ═══════════════════════════════════════════════
+class Seagull {
+  constructor(homePos = null, radius = 50) {
+    this.homePos = homePos;
+    this.radius = radius;
+    this.angle = random(TWO_PI);
+    this.wingPhase = random(TWO_PI);
+    this.resetPosition();
+  }
+  resetPosition(){
+    if(this.homePos){
+      this.pos = createVector(
+        this.homePos.x + cos(this.angle)*this.radius,
+        this.homePos.y + sin(this.angle)*this.radius*0.6
+      );
+      this.vel = createVector(0,0);
+    } else {
+      this.pos = createVector(random(50,width-50), random(30,height*0.45));
+      this.vel = createVector(random(-0.6,0.6), random(-0.3,0.3));
+    }
+  }
+  update(dt){
+    if(this.homePos){
+      this.angle += dt * 1.5;
+      this.pos.x = this.homePos.x + cos(this.angle)*this.radius;
+      this.pos.y = this.homePos.y + sin(this.angle)*this.radius*0.6;
+      this.wingPhase += dt * 7;
+      return;
+    }
+    this.wingPhase += dt*8;
+    this.pos.add(p5.Vector.mult(this.vel, dt*60));
+    if(this.pos.x<10||this.pos.x>width-10) this.vel.x*=-1;
+    if(this.pos.y<10||this.pos.y>height*0.55) this.vel.y*=-1;
+    if(random()<0.01*dt*60) {
+      this.vel.add(createVector(random(-0.2,0.2),random(-0.15,0.15)));
+      this.vel.limit(0.8);
+    }
+  }
+  show(){
+    push();
+    translate(this.pos.x, this.pos.y);
+    const s = 0.7;
+    fill(255); noStroke();
+    ellipse(0,0,8*s,5*s);
+    const wingUp = sin(this.wingPhase)*6*s;
+    fill(220);
+    triangle(-3*s,-2*s, 0, wingUp-4*s, 3*s,-2*s);
+    triangle(-3*s,2*s, 0, -wingUp+4*s, 3*s,2*s);
+    fill(255); ellipse(4*s,-1*s,3.5*s,3*s);
+    fill(255,200,0); triangle(5.5*s,-1*s,7*s,-0.5*s,5.5*s,0);
+    fill(0); ellipse(5*s,-1.5*s,1.2*s,1.2*s);
+    pop();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  BOAT
+// ═══════════════════════════════════════════════
+class Boat {
+  constructor(x,y,tier){
+    this.pos = createVector(x,y);
+    this.vel = createVector(0,0);
+    this.angle = 0;
+    this.tier = tier;
+    this.baseSpeed = CONSTANTS.BOAT.BASE_SPEED[tier];
+    this.speed = this.baseSpeed;
+    this.backwardSpeed = this.speed/2;
+    this.isAnchored = false;
+    this.anchorPos = null;
+    this.wakeTimer = 0;
+  }
+  update(dt){
+    if(gameOver) return;
+    const speedMul = 1 + player.boatTier*0.2;
+    this.speed = this.baseSpeed * speedMul;
+    this.backwardSpeed = this.speed/2;
+    if(this.isAnchored){
+      this.vel.set(0,0);
+      const bow = createVector(9,0);
+      this.angle = wind.direction + PI;
+      const ca = cos(this.angle), sa = sin(this.angle);
+      this.pos.x = this.anchorPos.x - (bow.x*ca - bow.y*sa);
+      this.pos.y = this.anchorPos.y - (bow.x*sa + bow.y*ca);
+      return;
+    }
+    const up = keyIsDown(UP_ARROW)||mobileKeys.up;
+    const down = keyIsDown(DOWN_ARROW)||mobileKeys.down;
+    const left = keyIsDown(LEFT_ARROW)||mobileKeys.left;
+    const right = keyIsDown(RIGHT_ARROW)||mobileKeys.right;
+    const fuelCost = CONSTANTS.FUEL_CONSUMPTION/(player.fuelEfficiency+player.boatTier*0.15);
+    let moving = false;
+    if(up && player.fuel>0){ this.vel = p5.Vector.fromAngle(this.angle).mult(this.speed); moving=true; }
+    else if(down && player.fuel>0){ this.vel = p5.Vector.fromAngle(this.angle).mult(-this.backwardSpeed); moving=true; }
+    else { this.vel.mult(0.9); }
+    if(moving){
+      let angleToWind = abs(((this.angle-wind.direction+TWO_PI)%TWO_PI));
+      if(angleToWind>PI) angleToWind = TWO_PI-angleToWind;
+      const factor = 1 + (angleToWind/PI)*0.5;
+      player.fuel = max(0, player.fuel - fuelCost*factor*dt);
+      const rotSpeed = 2.5;
+      if(down){
+        if(left) this.angle += rotSpeed*dt;
+        if(right) this.angle -= rotSpeed*dt;
+      } else {
+        if(left) this.angle -= rotSpeed*dt;
+        if(right) this.angle += rotSpeed*dt;
+      }
+      this.wakeTimer += dt;
+      if(this.wakeTimer>0.15){
+        this.wakeTimer=0;
+        const wx = down ? -CONSTANTS.BOAT.LENGTH[this.tier]*CONSTANTS.BOAT.SCALE[this.tier] : CONSTANTS.BOAT.LENGTH[this.tier]*CONSTANTS.BOAT.SCALE[this.tier];
+        const ca2=cos(this.angle), sa2=sin(this.angle);
+        spawnParticles(this.pos.x+wx*ca2, this.pos.y+wx*sa2, 2, [200,220,255],0.8,0.4);
+      }
+    }
+    if(dist(this.pos.x,this.pos.y,wharf.x+wharf.w/2,wharf.y)>CONSTANTS.WHARF_RANGE){
+      const wv = createVector(cos(wind.direction),sin(wind.direction)).mult(wind.speed/1166.4);
+      this.vel.add(wv);
+    }
+    if(this.vel.mag()>this.speed) this.vel.setMag(this.speed);
+    const newPos = p5.Vector.add(this.pos, this.vel);
+    if(isOnLand(newPos.x,newPos.y,this.tier)){ handleBoatCrash(); return; }
+    this.pos = newPos;
+    this.pos.x = constrain(this.pos.x,3,width-3);
+    this.pos.y = constrain(this.pos.y,3,height-3);
+  }
+  show(){
+    push(); translate(this.pos.x,this.pos.y); rotate(this.angle);
+    const sc = CONSTANTS.BOAT.SCALE[this.tier];
+    const w = CONSTANTS.BOAT.WIDTH[this.tier], l = CONSTANTS.BOAT.LENGTH[this.tier];
+    fill(0,0,0,30); noStroke();
+    beginShape();
+    vertex(l*sc+1.5,1.5); vertex(w*sc+1.5,-w*sc+1.5); vertex(-l*sc+1.5,-w*sc+1.5);
+    vertex(-l*sc+1.5,w*sc+1.5); vertex(w*sc+1.5,w*sc+1.5);
+    endShape(CLOSE);
+    const hullCol = [[90,100,110],[0,90,180],[180,190,200],[255,60,0]][this.tier];
+    fill(hullCol); stroke(255,255,255,60); strokeWeight(0.6);
+    beginShape();
+    vertex(l*sc,0); vertex(w*sc,-w*sc); vertex(-l*sc,-w*sc); vertex(-l*sc,w*sc); vertex(w*sc,w*sc);
+    endShape(CLOSE); noStroke();
+    fill(240,235,220); rect(-2.4*sc,-2.4*sc,4.8*sc,4.8*sc,0.6);
+    fill(139,69,19); rect(-4.8*sc,-2.4*sc,4.8*sc,4.8*sc,0.8);
+    if(this.tier===2){
+      fill(0,180,0,180); ellipse(0,0,1.6*sc,1.6*sc);
+      stroke(0,255,0,150); strokeWeight(0.3);
+      line(0,0,-l*sc*0.7,-w*sc*0.7); line(0,0,-l*sc*0.7,w*sc*0.7); line(0,0,l*sc*0.5,0);
+      noStroke();
+    }
+    fill(255,30,30); ellipse(-1.2*sc,-2.4*sc,1.4,1.4);
+    fill(30,255,30); ellipse(-1.2*sc,2.4*sc,1.4,1.4);
+    const moving = (keyIsDown(UP_ARROW)||keyIsDown(DOWN_ARROW)||mobileKeys.up||mobileKeys.down) && player.fuel>0;
+    if(moving){
+      const back = keyIsDown(DOWN_ARROW)||mobileKeys.down;
+      const wx = back ? l*sc : -l*sc;
+      fill(255,255,255,150); noStroke();
+      triangle(wx,0, wx-2.64*sc,-1.32*sc, wx-2.64*sc,1.32*sc);
+      triangle(wx-2.64*sc,0, wx-4.62*sc,-0.66*sc, wx-4.62*sc,0.66*sc);
+    }
+    if((keyIsDown(UP_ARROW)||mobileKeys.up) && player.fuel>0){
+      stroke(255,255,255,80+sin(millis()*0.003)*70); strokeWeight(0.6);
+      const bl = 6*sc;
+      line(l*sc+2.4*sc,0, l*sc+2.4*sc+cos(PI/4+PI)*bl, sin(PI/4+PI)*bl);
+      line(l*sc+2.4*sc,0, l*sc+2.4*sc+cos(-PI/4+PI)*bl, sin(-PI/4+PI)*bl);
+      noStroke();
+    }
+    if(this.isAnchored){
+      stroke(160,140,100); strokeWeight(1.4); line(l*sc,0,l*sc+4.5*sc,0);
+      stroke(255,255,255,80+sin(millis()*0.003)*70); strokeWeight(0.4); line(l*sc,0,l*sc+1.2*sc,0);
+      noStroke();
+    }
+    if(isNearPot()!==false){
+      stroke(255,220,0,180+sin(millis()*0.005)*70); strokeWeight(0.7);
+      line(0,-w*sc,0,-w*sc-3*sc); noStroke();
+    }
+    pop();
+  }
+  showBroken(){
+    push(); translate(this.pos.x,this.pos.y); rotate(this.angle);
+    const sc = CONSTANTS.BOAT.SCALE[this.tier];
+    const w = CONSTANTS.BOAT.WIDTH[this.tier], l = CONSTANTS.BOAT.LENGTH[this.tier];
+    fill([[90,100,110],[0,90,180],[180,190,200],[255,60,0]][this.tier]);
+    stroke(0); strokeWeight(0.8);
+    beginShape();
+    vertex(l*sc,0); vertex(w*sc,-w*sc); vertex(-l*sc,-w*sc); vertex(-l*sc,w*sc); vertex(w*sc,w*sc);
+    endShape(CLOSE);
+    stroke(255,30,30); strokeWeight(2);
+    line(-l*sc,-w*sc, l*sc,w*sc); line(-l*sc,w*sc, l*sc,-w*sc);
+    noStroke(); pop();
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function getBoatPotLimit(t){ return t===0?3:t===1?6:t===2?12:6; }
+function generateDetailedIsland(base, detail, ns){
+  const pts = [];
+  for(let i=0;i<base.length;i++){
+    const p1=base[i], p2=base[(i+1)%base.length];
+    pts.push(p1);
+    for(let j=1;j<detail;j++){
+      const t=j/detail;
+      let x=lerp(p1.x,p2.x,t), y=lerp(p1.y,p2.y,t);
+      const off = noise(x*ns,y*ns)*20-10;
+      const dx=p2.y-p1.y, dy=p1.x-p2.x, len=sqrt(dx*dx+dy*dy);
+      if(len>0){ x+=(dx/len)*off; y+=(dy/len)*off; }
+      pts.push({x,y});
+    }
+  }
+  return pts;
+}
+function setupGrid(){
+  grid = Array(CONSTANTS.GRID_COLS*CONSTANTS.GRID_ROWS).fill().map(()=>[]);
+  for(const poly of [island,smallIslandBR,smallIslandTL,newIsland]){
+    if(!poly) continue;
+    const b = getPolygonBounds(poly);
+    const minC=floor(b.minX/CONSTANTS.GRID_SIZE), maxC=floor(b.maxX/CONSTANTS.GRID_SIZE);
+    const minR=floor(b.minY/CONSTANTS.GRID_SIZE), maxR=floor(b.maxY/CONSTANTS.GRID_SIZE);
+    for(let c=minC;c<=maxC;c++) for(let r=minR;r<=maxR;r++)
+      if(c>=0&&c<CONSTANTS.GRID_COLS&&r>=0&&r<CONSTANTS.GRID_ROWS) grid[c+r*CONSTANTS.GRID_COLS].push(poly);
+  }
+  const wc=floor(wharf.x/CONSTANTS.GRID_SIZE), wr=floor(wharf.y/CONSTANTS.GRID_SIZE);
+  if(wc>=0&&wc<CONSTANTS.GRID_COLS&&wr>=0&&wr<CONSTANTS.GRID_ROWS) grid[wc+wr*CONSTANTS.GRID_COLS].push('wharf');
+}
+function getPolygonBounds(poly){
+  let mx=Infinity,Mx=-Infinity,my=Infinity,My=-Infinity;
+  for(const p of poly){ mx=min(mx,p.x); Mx=max(Mx,p.x); my=min(my,p.y); My=max(My,p.y); }
+  return {minX:mx,maxX:Mx,minY:my,maxY:My};
+}
+function distToSegment(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,ls=dx*dx+dy*dy;
+  if(ls===0) return dist(px,py,x1,y1);
+  const t=constrain(((px-x1)*dx+(py-y1)*dy)/ls,0,1);
+  return dist(px,py,x1+t*dx,y1+t*dy);
+}
+function pointInPolygon(p,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    if((poly[i].y>p.y)!==(poly[j].y>p.y) && p.x<(poly[j].x-poly[i].x)*(p.y-poly[i].y)/(poly[j].y-poly[i].y)+poly[i].x)
+      inside=!inside;
+  }
+  return inside;
+}
+function pointInPolygonWithBuffer(p,poly,buf){
+  if(pointInPolygon(p,poly)) return true;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++)
+    if(distToSegment(p.x,p.y,poly[j].x,poly[j].y,poly[i].x,poly[i].y)<buf) return true;
+  return false;
+}
+function getNearestShoreDistance(x,y){
+  let md=Infinity;
+  for(const poly of [island,smallIslandBR,smallIslandTL,newIsland]){
+    if(!poly) continue;
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++)
+      md = min(md, distToSegment(x,y,poly[j].x,poly[j].y,poly[i].x,poly[i].y));
+  }
+  return md;
+}
+function isOnLand(x,y,tier){
+  const rad = tier===0?7.2:(tier===1||tier===3?8.4:9.6);
+  const buf=0.5, effRad=rad+buf;
+  const col=floor(x/CONSTANTS.GRID_SIZE), row=floor(y/CONSTANTS.GRID_SIZE);
+  const checked=new Set();
+  for(let dc=-1;dc<=1;dc++) for(let dr=-1;dr<=1;dr++){
+    const c=col+dc, r=row+dr;
+    if(c>=0&&c<CONSTANTS.GRID_COLS&&r>=0&&r<CONSTANTS.GRID_ROWS){
+      for(const item of grid[c+r*CONSTANTS.GRID_COLS]){
+        if(item==='wharf'){
+          const m=rad+2;
+          if(x>=wharf.x-m && x<=wharf.x+wharf.w+m && y>=wharf.y-m && y<=wharf.y+wharf.h+m) return true;
+        }else if(!checked.has(item)){
+          if(pointInPolygonWithBuffer({x,y},item,effRad)) return true;
+          checked.add(item);
+        }
+      }
+    }
+  }
+  return false;
+}
+function isNearShoreline(x,y){
+  if(!island||!smallIslandBR||!smallIslandTL||!newIsland) return false;
+  return getNearestShoreDistance(x,y) < CONSTANTS.ANCHOR_DIST;
+}
+
+// ═══════════════════════════════════════════════
+//  SAVE/LOAD
+// ═══════════════════════════════════════════════
+function saveGame(){
+  const data = {
+    version:'2.1', player:{...player}, boat: boat?{x:boat.pos.x,y:boat.pos.y,angle:boat.angle,isAnchored:boat.isAnchored,anchorPos:boat.anchorPos?{x:boat.anchorPos.x,y:boat.anchorPos.y}:null,tier:boat.tier}:null,
+    pots, wind, event, hotspots, flashPot, crayfishPrice, showTutorial, gameOver, dayTime
+  };
+  try{ localStorage.setItem('crayFisherV2',JSON.stringify(data)); }catch(e){}
+}
+function loadGame(){
+  try{
+    const data = JSON.parse(localStorage.getItem('crayFisherV2'));
+    if(data?.version==='2.1'){
+      player = data.player;
+      player.highscore = Number(player.highscore)||0;
+      player.maxPots = getBoatPotLimit(player.selectedBoat);
+      player.availablePots = min(data.player.availablePots, player.maxPots);
+      if(data.boat){
+        boat = new Boat(data.boat.x,data.boat.y,data.boat.tier);
+        boat.angle=data.boat.angle; boat.isAnchored=data.boat.isAnchored;
+        if(data.boat.anchorPos) boat.anchorPos=createVector(data.boat.anchorPos.x,data.boat.anchorPos.y);
+      }
+      pots=data.pots||[]; wind=data.wind; event=data.event; hotspots=data.hotspots||[];
+      flashPot=data.flashPot; crayfishPrice=data.crayfishPrice||20;
+      showTutorial=data.showTutorial!==false; gameOver=data.gameOver||false; dayTime=data.dayTime||0.35;
+      updateUI();
+    }
+  }catch(e){}
+}
+function clearSave(){ try{localStorage.removeItem('crayFisherV2');}catch(e){} resetGame(); }
+function handleBoatCrash(){
+  sfxCrash(); spawnParticles(boat.pos.x,boat.pos.y,25,[255,150,50],3,0.8);
+  if(player.ownedBoats.length>1){
+    player.ownedBoats.splice(player.ownedBoats.indexOf(player.selectedBoat),1);
+    player.selectedBoat=player.ownedBoats[0]; player.boatTier=player.selectedBoat;
+    boat=new Boat(wharf.x+wharf.w/2,wharf.y+80,player.selectedBoat);
+    player.maxPots=getBoatPotLimit(player.selectedBoat);
+    player.availablePots=min(player.availablePots,player.maxPots);
+    player.fuel=100; player.ice=player.maxIce;
+    player.maxIce=player.selectedBoat===0?100:player.selectedBoat===1?120:player.selectedBoat===2?150:120;
+    gameOver=false; addNotification('Boat destroyed! Spare deployed.',[255,180,50],4000); saveGame();
+  }else{
+    gameOver=true; addNotification('Game Over - All boats lost!',[255,50,50],6000); saveGame();
+  }
+}
+function resetGame(){
+  player = {coins:100,bait:0,totalPots:1,maxPots:getBoatPotLimit(0),availablePots:1,crayfish:[],fuel:100,ice:100,maxIce:100,iceUpgrade:0,fuelEfficiency:1,boatTier:0,ownedBoats:[0],selectedBoat:0,highscore:player.highscore||0};
+  pots=[]; boat=new Boat(wharf.x+wharf.w/2,wharf.y+80,0);
+  showMenu=showEscMenu=gameOver=false; showTutorial=true;
+  wind={direction:0,speed:0,nextChange:0}; event={type:'none',endTime:0,boost:1};
+  flashPot=null; notifications=[]; particles=[]; dayTime=0.35;
+  lastFrameTime=millis(); updateWind(millis()); updateCrayfishPrice(); saveGame();
+}
+
+// ═══════════════════════════════════════════════
+//  GAME STATE UPDATES
+// ═══════════════════════════════════════════════
+function updateWind(now){
+  wind.direction=random(0,TWO_PI);
+  wind.speed=event.type==='storm'?random(25,50):random(0,19.45);
+  wind.nextChange=now+(event.type==='storm'?event.endTime-now:300000);
+  saveGame();
+}
+function updateEvent(now){
+  if(random()<0.15){
+    const evts=[{type:'storm',duration:120000,boost:0.5},{type:'fish school',duration:180000,boost:3}];
+    event=random(evts); event.endTime=now+event.duration;
+    if(event.type==='storm') updateWind(now);
+    addNotification(event.type==='storm'?'⛈ Storm!':'🐟 Fish school!', event.type==='storm'?[200,200,255]:[100,255,200],4000);
+  }else{ event={type:'none',endTime:now+300000,boost:1}; }
+  saveGame();
+}
+function updateCrayfishPrice(){
+  crayfishPrice=floor(random(15,25))*(event.type==='storm'?2:1);
+  saveGame();
+}
+function updateCrayfishQuality(dt){
+  if(player.ice<10){
+    for(const c of player.crayfish) if(random()<0.1*dt) c.quality=max(0,c.quality-0.1);
+  }
+}
+function addNotification(msg,color,dur=2000){
+  notifications.push({message:msg,color,endTime:millis()+dur});
+  if(notifications.length>5) notifications.shift();
+}
+
+// ═══════════════════════════════════════════════
+//  POT MANAGEMENT
+// ═══════════════════════════════════════════════
+function dropPot(){
+  if(player.availablePots<=0||isOnLand(boat.pos.x,boat.pos.y,boat.tier)) return;
+  const baitUsed = player.bait>0;
+  if(baitUsed) player.bait--;
+  pots.push({x:boat.pos.x,y:boat.pos.y,baited:baitUsed,dropTime:millis()});
+  player.availablePots--; sfxDrop();
+  spawnParticles(boat.pos.x,boat.pos.y,8,[150,200,255],1.5,0.5); saveGame();
+}
+function isNearPot(){
+  for(let i=0;i<pots.length;i++) if(dist(boat.pos.x,boat.pos.y,pots[i].x,pots[i].y)<CONSTANTS.POT_RANGE) return i;
+  return false;
+}
+function pickUpPot(index){
+  const pot = pots.splice(index,1)[0];
+  player.availablePots = min(player.maxPots, player.availablePots+1);
+  sfxPickup(); spawnParticles(pot.x,pot.y,10,[255,200,100],2,0.6);
+  if(!pot.baited){ saveGame(); return; }
+  const soakTime = (millis()-pot.dropTime)/1000;
+  let baseProb = soakTime<30?0.06:(soakTime<90?0.12:0.24);
+  baseProb *= event.boost;
+  const nightBonus = (dayTime<0.2||dayTime>0.8)?1.5:1.0;
+  baseProb *= nightBonus;
+  if(dist(pot.x,pot.y,wharf.x+wharf.w/2,wharf.y)<160){ saveGame(); return; }
+  const shoreDist = getNearestShoreDistance(pot.x,pot.y);
+  const distToWharf = dist(pot.x,pot.y, wharf.x+wharf.w/2, wharf.y);
+  const nearPoint = islandPoints.find(pt=>dist(pot.x,pot.y,pt.x,pt.y)<CONSTANTS.POINT_RADIUS);
+  const nearHotspot = hotspots.find(h=>dist(pot.x,pot.y, h.x,h.y)<CONSTANTS.HOTSPOT_RADIUS);
+  const shoreFactor = max(0, 1.5 - shoreDist/80);
+  const distFactor = min(2.0, distToWharf/600);
+  let catchMultiplier = shoreFactor * distFactor;
+  if(nearPoint) catchMultiplier *= nearPoint.multiplier * 1.8;
+  if(nearHotspot) catchMultiplier *= 2.8;
+  const finalProb = min(0.85, baseProb * catchMultiplier);
+  const maxCray = nearHotspot?8:(nearPoint?5:2);
+  let caught=0;
+  for(let i=0;i<maxCray;i++){
+    if(random()<finalProb){
+      player.crayfish.push({quality:1.0, catchTime:millis()});
+      caught++;
+    }
+  }
+  if(caught>0){
+    addNotification(`🦞 Caught ${caught} crayfish!`,[255,180,60],3000);
+    spawnParticles(pot.x,pot.y,caught*3,[255,100,50],2.5,0.7);
+  }
+  for(let i=0;i<2;i++) if(random()<0.2) player.bait++;
+  saveGame();
+}
+
+// ═══════════════════════════════════════════════
+//  UPGRADES & MENU
+// ═══════════════════════════════════════════════
+function upgradeBoat(){
+  const costs=[150,300,500]; const tier=player.boatTier;
+  if(tier>=3) return;
+  if(player.coins>=costs[tier]){
+    player.coins-=costs[tier]; player.boatTier=tier+1;
+    player.maxPots=getBoatPotLimit(player.boatTier);
+    player.availablePots=min(player.availablePots,player.maxPots);
+    player.maxIce=player.boatTier===0?100:player.boatTier===1?120:player.boatTier===2?150:120;
+    player.ice=min(player.ice,player.maxIce);
+    if(!player.ownedBoats.includes(player.boatTier)) player.ownedBoats.push(player.boatTier);
+    player.selectedBoat=player.boatTier;
+    boat=new Boat(boat.pos.x,boat.pos.y,player.selectedBoat);
+    sfxUpgrade(); addNotification('🚤 Boat upgraded!',[255,215,0],3000); saveGame();
+  }else{ addNotification(`Need ${costs[tier]} coins!`,[255,80,80],2000); }
+}
+function cycleBoat(){
+  const idx = (player.ownedBoats.indexOf(player.selectedBoat)+1)%player.ownedBoats.length;
+  player.selectedBoat=player.ownedBoats[idx]; player.boatTier=player.selectedBoat;
+  player.maxPots=getBoatPotLimit(player.selectedBoat);
+  player.availablePots=min(player.availablePots,player.maxPots);
+  player.maxIce=player.selectedBoat===0?100:player.selectedBoat===1?120:player.selectedBoat===2?150:120;
+  player.ice=min(player.ice,player.maxIce);
+  boat=new Boat(boat.pos.x,boat.pos.y,player.selectedBoat);
+  sfxBuy(); saveGame();
+}
+function handleMenuInput(){
+  const atWharf = dist(boat.pos.x,boat.pos.y,wharf.x+wharf.w/2,wharf.y)<CONSTANTS.WHARF_RANGE;
+  notifications = notifications.filter(n=>n.color[0]!==255||n.endTime<millis());
+  if(key==='1'&&player.coins>=10){ player.coins-=10; player.bait++; sfxBuy(); saveGame(); }
+  else if(key==='1') addNotification('Need 10 coins!',[255,80,80]);
+  else if(key==='2'&&player.coins>=50&&player.availablePots<player.maxPots){ player.coins-=50; player.totalPots++; player.availablePots++; sfxBuy(); saveGame(); }
+  else if(key==='2'&&player.availablePots>=player.maxPots) addNotification('Max pots deployed!',[255,180,50]);
+  else if(key==='2') addNotification('Need 50 coins!',[255,80,80]);
+  else if(key==='3'&&player.crayfish.length>0&&player.ice>0){
+    let val=0; for(const c of player.crayfish) val+=crayfishPrice*c.quality;
+    player.coins+=floor(val); player.highscore=max(player.highscore||0,player.coins); player.crayfish=[];
+    sfxSell(); addNotification(`Sold for ${floor(val)} coins!`,[255,215,0],3000); saveGame();
+  }else if(key==='3') addNotification(player.crayfish.length===0?'No crayfish!':'Ice depleted!',[255,80,80]);
+  else if(key==='4'&&player.coins>=1&&player.ice<player.maxIce){ player.coins-=1; player.ice=min(player.maxIce,player.ice+10); sfxBuy(); saveGame(); }
+  else if(key==='4') addNotification(player.coins<1?'Need 1 coin!':'Icebox full!',[255,80,80]);
+  else if(key==='5'&&player.coins>=1&&player.fuel<420){ player.coins-=1; player.fuel=min(420,player.fuel+10); sfxBuy(); saveGame(); }
+  else if(key==='5') addNotification(player.coins<1?'Need 1 coin!':'Fuel full!',[255,80,80]);
+  else if(key==='6'&&player.coins>=100&&player.iceUpgrade<3){ player.coins-=100; player.iceUpgrade++; player.maxIce+=50; player.ice=min(player.ice,player.maxIce); sfxUpgrade(); saveGame(); }
+  else if(key==='6') addNotification(player.coins<100?'Need 100 coins!':'Max upgrades!',[255,80,80]);
+  else if(key==='7'&&player.coins>=100&&player.fuelEfficiency<2){ player.coins-=100; player.fuelEfficiency+=0.5; sfxUpgrade(); saveGame(); }
+  else if(key==='7') addNotification(player.coins<100?'Need 100 coins!':'Max efficiency!',[255,80,80]);
+  else if(key==='8'&&atWharf) upgradeBoat();
+  else if(key==='8') addNotification('Must be at wharf!',[255,80,80]);
+  else if(key==='9') cycleBoat();
+  else if(key==='0') showMenu=false;
+}
+
+// ═══════════════════════════════════════════════
+//  DRAWING
+// ═══════════════════════════════════════════════
+function drawWindLines(pulse){
+  if(!island||!smallIslandBR||!smallIslandTL||!newIsland) return;
+  const wv = createVector(cos(wind.direction),sin(wind.direction));
+  stroke(255,255,255,80+pulse*80); strokeWeight(1);
+  for(const poly of [island,smallIslandBR,smallIslandTL,newIsland]){
+    for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+      const x1=poly[j].x,y1=poly[j].y,x2=poly[i].x,y2=poly[i].y;
+      const dx=x2-x1,dy=y2-y1,len=sqrt(dx*dx+dy*dy);
+      if(len===0) continue;
+      const normal = createVector(-dy/len, dx/len);
+      const mid = createVector((x1+x2)/2,(y1+y2)/2);
+      const test = p5.Vector.add(mid, normal.copy().mult(8));
+      if(pointInPolygon({x:test.x,y:test.y},poly)) normal.mult(-1);
+      if(wv.dot(normal)<0){
+        const off = normal.mult(1.6);
+        line(x1+off.x,y1+off.y, x2+off.x,y2+off.y);
+      }
+    }
+  }
+  if(event.type==='storm'){
+    stroke(255,255,255,60+pulse*60);
+    for(const poly of [island,smallIslandBR,smallIslandTL,newIsland]){
+      for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+        const x1=poly[j].x,y1=poly[j].y,x2=poly[i].x,y2=poly[i].y;
+        const dx=x2-x1,dy=y2-y1,len=sqrt(dx*dx+dy*dy);
+        if(len===0) continue;
+        const normal = createVector(-dy/len, dx/len);
+        const mid = createVector((x1+x2)/2,(y1+y2)/2);
+        const test = p5.Vector.add(mid, normal.copy().mult(8));
+        if(pointInPolygon({x:test.x,y:test.y},poly)) normal.mult(-1);
+        if(wv.dot(normal)<0){
+          const off = normal.mult(3.5);
+          line(x1+off.x,y1+off.y, x2+off.x,y2+off.y);
+        }
+      }
+    }
+  }
+  noStroke();
+}
+function drawIsland(){
+  fill(240,210,160); noStroke();
+  beginShape(); for(const pt of island) vertex(pt.x+3,pt.y+3); endShape(CLOSE);
+  fill(255,204,102);
+  beginShape(); for(const pt of island) vertex(pt.x,pt.y); endShape(CLOSE);
+  fill(34,139,34);
+  beginShape(); for(const pt of island) vertex(pt.x-6,pt.y-6); endShape(CLOSE);
+  for(const peak of mountainPeaks){
+    fill(100,100,100); triangle(peak.x-80,peak.y+80, peak.x,peak.y+32, peak.x+80,peak.y+80);
+    fill(0,100,0); triangle(peak.x-80,peak.y+80, peak.x,peak.y, peak.x+80,peak.y+80);
+    fill(255); triangle(peak.x-32,peak.y+32, peak.x,peak.y, peak.x+32,peak.y+32);
+  }
+}
+function drawSmallIsland(poly, vegCol){
+  fill(240,210,160); beginShape(); for(const pt of poly) vertex(pt.x+2,pt.y+2); endShape(CLOSE);
+  fill(255,204,102); beginShape(); for(const pt of poly) vertex(pt.x,pt.y); endShape(CLOSE);
+  fill(vegCol); beginShape(); for(const pt of poly) vertex(pt.x-4,pt.y-4); endShape(CLOSE);
+}
+function drawWharf(){
+  fill(0,0,0,50); rect(wharf.x+2,wharf.y+2,wharf.w,wharf.h);
+  fill(120,60,10); rect(wharf.x,wharf.y,wharf.w,wharf.h);
+  fill(180,140,100); for(let px=wharf.x;px<wharf.x+wharf.w;px+=6) rect(px,wharf.y,4,wharf.h);
+  fill(255); rect(wharf.x+4,wharf.y+4,12,8,1);
+  fill(139,69,19); rect(wharf.x+3,wharf.y+4,12,8,1);
+  fill(255); rect(wharf.x+24,wharf.y+4,12,8,1);
+  fill(139,69,19); rect(wharf.x+23,wharf.y+4,12,8,1);
+  fill(80,40,5); ellipse(wharf.x,wharf.y+wharf.h,3.5,3.5);
+  ellipse(wharf.x+wharf.w/2,wharf.y+wharf.h,3.5,3.5);
+  ellipse(wharf.x+wharf.w,wharf.y+wharf.h,3.5,3.5);
+}
+function drawHotspots(){
+  for(const h of hotspots){
+    noFill(); stroke(0,180,255,70+sin(millis()*0.002)*30);
+  }
+}
+function drawPots(){
+  for(const pot of pots){
+    const flash = flashPot && flashPot.x===pot.x && flashPot.y===pot.y;
+    fill(flash&&(millis()%300<150)?[255,255,255]:(pot.baited?[255,165,0]:[200,50,50]));
+    noStroke(); ellipse(pot.x,pot.y,6.4,6.4);
+    stroke(100,100,100,150); strokeWeight(0.5); line(pot.x,pot.y-3.2,pot.x,pot.y-8); noStroke();
+    if(pot.baited){
+      noFill(); stroke(255,255,200,80+sin(millis()*0.003)*70); strokeWeight(0.8);
+      ellipse(pot.x,pot.y,10+sin(millis()*0.003)*2,10+sin(millis()*0.003)*2); noStroke();
+    }
+  }
+}
+function drawNotifications(){
+  notifications = notifications.filter(n=>millis()<n.endTime);
+  for(let i=0;i<min(notifications.length,3);i++){
+    const n=notifications[notifications.length-1-i];
+    const alpha = min(1,(n.endTime-millis())/500)*200;
+    fill(n.color[0],n.color[1],n.color[2],alpha); textSize(20); textAlign(CENTER);
+    text(n.message,640,170+i*28);
+  }
+}
+function drawMenu(){
+  fill(0,0,0,210); rect(300,140,680,750,8);
+  fill(255); textSize(30); textAlign(CENTER); text('🏪 Wharf Menu',640,210);
+  textSize(22);
+  const items = ['1. Buy Bait (10)','2. Buy Pot (50)',player.ice>0?`3. Sell Crayfish (${crayfishPrice}ea)`:'3. Sell (SPOILED)','4. Buy Ice (1→10)','5. Buy Fuel (1→10)','6. Upgrade Icebox (100)','7. Fuel Efficiency (100)',player.boatTier<3?'8. Upgrade Boat':'8. [MAX]','9. Cycle Boat','0. Exit'];
+  for(let i=0;i<items.length;i++) text(items[i],640,265+i*40);
+  textSize(18); const names=['Basic','Intermediate','Advanced','Speed'];
+  text(`Current: ${names[player.boatTier]} | Owned: ${player.ownedBoats.map(b=>names[b]).join(',')}`,640,680);
+  if(player.boatTier<3){
+    const costs=[150,300,500]; const can=player.coins>=costs[player.boatTier];
+    fill(can?[200,255,200]:[255,150,150]);
+    text(`Upgrade → ${names[player.boatTier+1]}: ${costs[player.boatTier]} coins${can?'':' (need '+(costs[player.boatTier]-player.coins)+')'}`,640,710);
+  }
+}
+function drawEscMenu(){
+  fill(0,0,0,210); rect(380,300,520,380,8); fill(255); textSize(30); textAlign(CENTER);
+  text('⏸ Pause',640,370); textSize(24); text('1. Reset',640,450); text('2. Clear Save',640,500); text('3. Resume',640,550);
+}
+function drawTutorial(){
+  fill(0,0,0,210); rect(200,140,880,660,10); fill(255); textSize(30); textAlign(CENTER);
+  text('🦞 Welcome to CrayFisher!',640,210); textSize(22);
+  const lines=['⬆⬇⬅➡ Move','SPACE Drop/Pick pot','A Anchor near shore','ENTER at wharf = shop','ESC Pause','','🪱 Bait pots for better catch','🗻 Rocky points = best fishing','🐦 Birds circle hotspots','🌙 Nighttime bonus','Manage ⛽🧊 to survive','Press any key to start'];
+  for(let i=0;i<lines.length;i++) text(lines[i],640,270+i*35);
+}
+function updateUI(){
+  document.getElementById('coins').innerText=player.coins;
+  document.getElementById('bait').innerText=player.bait;
+  document.getElementById('pots').innerText=`${player.availablePots}/${player.maxPots} (${player.totalPots})`;
+  document.getElementById('crayfish').innerText=player.crayfish.length;
+  document.getElementById('fuel').innerText=floor(player.fuel);
+  document.getElementById('ice').innerText=floor(player.ice);
+  document.getElementById('boat').innerText=boat?['Basic','Intermediate','Advanced','Speed'][boat.tier]:'None';
+  document.getElementById('wind').innerText=`${floor(wind.speed)} kn`;
+  document.getElementById('event').innerText=event.type==='none'?'Clear':event.type==='storm'?'⛈ Storm':'🐟 School';
+  document.getElementById('highscoreValue').innerText=player.highscore||0;
+  document.getElementById('fuel-hud').classList.toggle('warning',player.fuel<20);
+  document.getElementById('ice-hud').classList.toggle('warning',player.ice<15);
+  document.getElementById('event-hud').classList.toggle('warning',event.type==='storm');
+}
+
+// ═══════════════════════════════════════════════
+//  P5 SETUP & DRAW
+// ═══════════════════════════════════════════════
+function setup(){
+  const canvas = createCanvas(1280,960);
+  canvas.parent('game-container');
+  island = generateDetailedIsland([{x:480,y:165},{x:560,y:197},{x:672,y:261},{x:784,y:213},{x:832,y:181},{x:944,y:245},{x:992,y:341},{x:960,y:437},{x:912,y:501},{x:784,y:581},{x:640,y:501},{x:512,y:581},{x:432,y:501},{x:464,y:421}],10,0.02);
+  smallIslandBR = generateDetailedIsland([{x:1040,y:720},{x:1088,y:736},{x:1120,y:768},{x:1072,y:800},{x:1024,y:768},{x:1008,y:736}],5,0.03);
+  smallIslandTL = generateDetailedIsland([{x:240,y:160},{x:288,y:176},{x:320,y:208},{x:272,y:240},{x:224,y:208},{x:208,y:176}],5,0.03);
+  newIsland = generateDetailedIsland([{x:752,y:736},{x:848,y:656},{x:752,y:688},{x:656,y:656},{x:592,y:736},{x:624,y:784},{x:672,y:816},{x:720,y:768}],5,0.03);
+  setupGrid();
+  // Permanent underwater hotspots
+  hotspots = [];
+  const hotspotCandidates = [{x:300,y:700},{x:1050,y:300},{x:800,y:800}];
+  for(let i=0;i<3;i++){
+    const h = hotspotCandidates[i];
+    if(!isOnLand(h.x,h.y,0)) hotspots.push(h);
+  }
+  // Seagulls
+  for(const h of hotspots) for(let i=0;i<3;i++) seagulls.push(new Seagull(createVector(h.x,h.y), random(40,65)));
+  for(let i=0;i<6;i++) seagulls.push(new Seagull(null));
+  if(!boat) boat = new Boat(wharf.x+wharf.w/2, wharf.y+80, player.selectedBoat);
+  lastFrameTime = millis();
+  noiseSeed(random(1000));
+  loadGame();
+  if(!showTutorial) updateWind(millis());
+  updateCrayfishPrice();
+}
+
+function draw(){
+  const now = millis();
+  const dt = min((now-lastFrameTime)/1000, 0.1);
+  lastFrameTime = now;
+  const pulse = sin(now*0.002);
+  dayTime = (dayTime + dt/(CONSTANTS.DAY_CYCLE/1000))%1;
+
+  // Plain dark blue ocean background (top-down view)
+  background(10, 50, 80);
+
+  if(gameOver){
+    if(island) drawIsland();
+    if(smallIslandBR) drawSmallIsland(smallIslandBR,[20,100,20]);
+    if(smallIslandTL) drawSmallIsland(smallIslandTL,[50,160,50]);
+    if(newIsland) drawSmallIsland(newIsland,[20,100,20]);
+    drawWharf(); drawPots();
+    if(boat) boat.showBroken();
+    fill(0,0,0,140); rect(250,400,780,200,12);
+    fill(255,50,50); textSize(44); textAlign(CENTER); text('💥 Game Over',640,480);
+    fill(255); textSize(22); text('Press ESC for options',640,540);
+    if(showEscMenu) drawEscMenu();
+    updateUI(); return;
+  }
+
+  // Update systems
+  if(now>wind.nextChange) updateWind(now);
+  if(floor(now/60000)!==floor((now-dt*1000)/60000)) updateCrayfishPrice();
+  if(now>event.endTime) updateEvent(now);
+  if(flashPot && now>flashPot.endTime) flashPot=null;
+  if(dist(boat.pos.x,boat.pos.y,wharf.x+wharf.w/2,wharf.y)>CONSTANTS.WHARF_RANGE){
+    player.ice = max(0, player.ice-0.11*dt);
+    updateCrayfishQuality(dt);
+  }
+  if(player.fuel<=0 && !notifications.some(n=>n.message.includes('Out of Fuel')))
+    addNotification('⚠ Out of Fuel!',[255,50,50],5000);
+
+  particles = particles.filter(p=>{p.update(dt); return !p.dead;});
+  for(const gull of seagulls) gull.update(dt);
+
+  // Render islands
+  if(island) drawIsland();
+  drawWindLines(pulse);
+  if(smallIslandBR) drawSmallIsland(smallIslandBR,[20,100,20]);
+  if(smallIslandTL) drawSmallIsland(smallIslandTL,[50,160,50]);
+  if(newIsland) drawSmallIsland(newIsland,[20,100,20]);
+  drawWharf();
+  drawHotspots();
+  
+  // Storm rain
+  if(event.type==='storm'){
+    stroke(200,220,255,120);
+    for(let i=0;i<80;i++){ const x=random(width),y=random(height); line(x,y,x-6,y+random(8,16)); }
+    noStroke();
+  }
+  
+  // Draw seagulls, particles, boat, pots
+  for(const gull of seagulls) gull.show();
+  for(const p of particles) p.show();
+  if(boat){ boat.update(dt); boat.show(); }
+  drawPots();
+  
+  // Pot info
+  const potIdx = isNearPot();
+  if(potIdx!==false){
+    const pot=pots[potIdx];
+    fill(255); textSize(9); textAlign(CENTER);
+    text(`Baited: ${pot.baited?'Yes':'No'}`,boat.pos.x,boat.pos.y-22);
+    text(`Soak: ${floor((millis()-pot.dropTime)/1000)}s`,boat.pos.x,boat.pos.y-12);
+  }
+  
+  drawNotifications();
+  if(showMenu) drawMenu();
+  if(showEscMenu) drawEscMenu();
+  if(showTutorial) drawTutorial();
+  updateUI();
+}
+
+// ═══════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════
+function keyPressed(){
+  initAudio();
+  if(showTutorial){ showTutorial=false; updateWind(millis()); updateCrayfishPrice(); saveGame(); return; }
+  if(gameOver){
+    if(keyCode===ESCAPE) showEscMenu=!showEscMenu;
+    else if(showEscMenu){ if(key==='1') resetGame(); else if(key==='2') clearSave(); else if(key==='3') showEscMenu=false; }
+    return;
+  }
+  if(keyCode===32){
+    const idx=isNearPot();
+    if(idx!==false){ flashPot={x:pots[idx].x,y:pots[idx].y,endTime:millis()+1500}; pickUpPot(idx); }
+    else if(player.availablePots>0&&!isOnLand(boat.pos.x,boat.pos.y,boat.tier)) dropPot();
+    saveGame();
+  }else if(keyCode===ENTER && dist(boat.pos.x,boat.pos.y,wharf.x+wharf.w/2,wharf.y)<CONSTANTS.WHARF_RANGE){
+    showMenu=!showMenu; if(!showMenu) notifications=notifications.filter(n=>n.color[0]!==255||n.endTime<millis());
+  }else if(keyCode===ESCAPE){ showEscMenu=!showEscMenu; if(showMenu) showMenu=false; }
+  else if(keyCode===65){
+    if(boat.isAnchored){ boat.isAnchored=false; boat.anchorPos=null; sfxAnchor(); saveGame(); }
+    else if(!isOnLand(boat.pos.x,boat.pos.y,boat.tier)&&isNearShoreline(boat.pos.x,boat.pos.y)){
+      boat.isAnchored=true; const bow=createVector(9,0); const ca=cos(boat.angle),sa=sin(boat.angle);
+      boat.anchorPos=createVector(boat.pos.x+bow.x*ca-bow.y*sa, boat.pos.y+bow.x*sa+bow.y*ca);
+      sfxAnchor(); addNotification('⚓ Anchored!',[180,200,255],2000); saveGame();
+    }
+  }else if(showMenu) handleMenuInput();
+  else if(showEscMenu){ if(key==='1') resetGame(); else if(key==='2') clearSave(); else if(key==='3') showEscMenu=false; }
+}
+function keyReleased(){
+  if(keyCode===UP_ARROW) mobileKeys.up=false;
+  if(keyCode===DOWN_ARROW) mobileKeys.down=false;
+  if(keyCode===LEFT_ARROW) mobileKeys.left=false;
+  if(keyCode===RIGHT_ARROW) mobileKeys.right=false;
+}
+function setupMobileControls(){
+  const mapBtn = (id, key, mk)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('pointerdown',(e)=>{ e.preventDefault(); initAudio(); mobileKeys[mk]=true; if(key===32){ const i=isNearPot(); if(i!==false){ flashPot={x:pots[i].x,y:pots[i].y,endTime:millis()+1500}; pickUpPot(i); }else if(player.availablePots>0&&!isOnLand(boat.pos.x,boat.pos.y,boat.tier)) dropPot(); saveGame(); } else if(key===65){ if(boat.isAnchored){ boat.isAnchored=false; boat.anchorPos=null; sfxAnchor(); saveGame(); } else if(!isOnLand(boat.pos.x,boat.pos.y,boat.tier)&&isNearShoreline(boat.pos.x,boat.pos.y)){ boat.isAnchored=true; const bow=createVector(9,0); const ca=cos(boat.angle),sa=sin(boat.angle); boat.anchorPos=createVector(boat.pos.x+bow.x*ca-bow.y*sa, boat.pos.y+bow.x*sa+bow.y*ca); sfxAnchor(); addNotification('⚓ Anchored!',[180,200,255],2000); saveGame(); } } else if(key===ENTER){ if(dist(boat.pos.x,boat.pos.y,wharf.x+wharf.w/2,wharf.y)<CONSTANTS.WHARF_RANGE) showMenu=!showMenu; } });
+    el.addEventListener('pointerup',(e)=>{ e.preventDefault(); mobileKeys[mk]=false; });
+    el.addEventListener('pointerleave',()=>{ mobileKeys[mk]=false; });
+  };
+  mapBtn('btn-up',UP_ARROW,'up'); mapBtn('btn-down',DOWN_ARROW,'down');
+  mapBtn('btn-left',LEFT_ARROW,'left'); mapBtn('btn-right',RIGHT_ARROW,'right');
+  mapBtn('btn-space',32,'space'); mapBtn('btn-anchor',65,'anchor'); mapBtn('btn-menu',ENTER,'menu');
+}
+window.addEventListener('DOMContentLoaded',()=> setTimeout(setupMobileControls,100));
+</script>
+</body>
+</html>
